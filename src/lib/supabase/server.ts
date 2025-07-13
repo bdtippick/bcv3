@@ -30,6 +30,28 @@ export async function createServerComponentClient() {
   )
 }
 
+// 서버 액션용 Supabase 클라이언트
+export async function createServerActionClient() {
+  const cookieStore = await cookies()
+
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+}
+
 // Route Handler용 Supabase 클라이언트
 export async function createRouteHandlerClient() {
   const cookieStore = await cookies()

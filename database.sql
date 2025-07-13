@@ -252,9 +252,21 @@ ALTER TABLE uploaded_files ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION get_current_user_info()
 RETURNS TABLE(role TEXT, company_id UUID, branch_id UUID) AS $$
   SELECT
-    (get_my_claim('user_role'))::TEXT,
-    (get_my_claim('company_id'))::UUID,
-    (get_my_claim('branch_id'))::UUID
+    CASE 
+      WHEN get_my_claim('user_role') IS NOT NULL
+      THEN (get_my_claim('user_role') ->> 0)::TEXT
+      ELSE NULL
+    END,
+    CASE 
+      WHEN get_my_claim('company_id') IS NOT NULL
+      THEN (get_my_claim('company_id') ->> 0)::UUID
+      ELSE NULL
+    END,
+    CASE 
+      WHEN get_my_claim('branch_id') IS NOT NULL
+      THEN (get_my_claim('branch_id') ->> 0)::UUID
+      ELSE NULL
+    END
 $$ LANGUAGE sql STABLE;
 
 -- 정책: companies

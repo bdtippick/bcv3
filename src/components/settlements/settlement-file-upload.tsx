@@ -52,28 +52,63 @@ export function SettlementFileUpload() {
       return
     }
 
+    // 사용자 프로필 확인
+    if (!profile) {
+      setErrorMessage('로그인 상태를 확인할 수 없습니다. 페이지를 새로고침하거나 다시 로그인해주세요.')
+      setUploadStatus('error')
+      return
+    }
+
     // 지점 ID 확인 - company_admin의 경우 첫 번째 지점 사용, branch_manager는 자신의 지점 사용
     let branchId = profile?.branch_id
+    
+    console.log('Current user profile:', profile)
+    console.log('Branch ID from profile:', branchId)
     
     if (!branchId && (profile?.role === 'company_admin' || profile?.role === 'super_admin')) {
       // company_admin이나 super_admin인 경우 회사의 첫 번째 지점 사용
       try {
-        const { data: branches } = await supabase
+        console.log('Fetching branches for company:', profile.company_id)
+        const { data: branches, error: branchError } = await supabase
           .from('branches')
-          .select('id')
+          .select('id, name, code')
           .eq('company_id', profile.company_id)
           .limit(1)
         
+        console.log('Branches query result:', { branches, branchError })
+        
         if (branches && branches.length > 0) {
           branchId = branches[0].id
+          console.log('Using first branch:', branches[0])
+        } else {
+          console.log('No branches found, creating a default branch...')
+          // 지점이 없으면 기본 지점 생성
+          const { data: newBranch, error: createError } = await supabase
+            .from('branches')
+            .insert({
+              company_id: profile.company_id,
+              name: '본점',
+              code: 'MAIN001',
+              address: '서울시 강남구',
+              manager_name: profile.name || '관리자'
+            })
+            .select()
+            .single()
+          
+          console.log('Branch creation result:', { newBranch, createError })
+          
+          if (newBranch) {
+            branchId = newBranch.id
+            console.log('Created new branch:', newBranch)
+          }
         }
       } catch (error) {
-        console.error('Error fetching branch:', error)
+        console.error('Error fetching/creating branch:', error)
       }
     }
 
     if (!branchId) {
-      setErrorMessage('지점 정보를 찾을 수 없습니다. 관리자에게 문의하세요.')
+      setErrorMessage('지점 정보를 찾을 수 없습니다. 데이터베이스에 지점이 등록되지 않았습니다.')
       setUploadStatus('error')
       return
     }
@@ -100,11 +135,43 @@ export function SettlementFileUpload() {
 
       if (error) {
         console.error('Upload error:', error)
+        console.error('Detailed error info:', JSON.stringify(error, null, 2))
+        console.error('File path:', filePath)
+        console.error('Branch ID:', branchId)
+        console.error('User info:', profile)
         throw new Error(error.message || '파일 업로드 중 오류가 발생했습니다.')
       }
 
       setUploadStatus('success')
       setUploadProgress(100)
+
+      // Edge Function 호출하여 파일 파싱 시작
+      try {
+        console.log('Calling Excel parser function...')
+        const parseResponse = await fetch('/api/excel-parser', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filePath,
+            branchId,
+            platformName: '배민커넥트비즈' // 기본값, 추후 사용자가 선택할 수 있도록 개선
+          })
+        })
+
+        const parseResult = await parseResponse.json()
+        
+        if (parseResult.success) {
+          console.log('File parsing completed:', parseResult)
+        } else {
+          console.warn('File parsing failed:', parseResult.error)
+          // 파싱 실패해도 업로드는 성공으로 처리
+        }
+      } catch (parseError) {
+        console.error('Failed to trigger file parsing:', parseError)
+        // 파싱 실패해도 업로드는 성공으로 처리
+      }
       
       // 업로드 성공 후 파일 정보 초기화
       setTimeout(() => {

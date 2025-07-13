@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Building2, User, LogOut, Settings, Home, MapPin, Users, Calculator } from 'lucide-react'
+import { Building2, User, LogOut, Settings, Home, MapPin, Users, Calculator, Code } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -138,6 +138,14 @@ export function Header() {
                     </Button>
                   </Link>
                 ) : null}
+                {['branch_manager', 'company_admin', 'super_admin'].includes(profile?.role || '') ? (
+                  <Link href="/dashboard/settings/parser">
+                    <Button variant="ghost" size="sm">
+                      <Code className="h-4 w-4 mr-2" />
+                      파싱 설정
+                    </Button>
+                  </Link>
+                ) : null}
               </>
             )}
           </nav>
@@ -226,6 +234,15 @@ export function Header() {
                       <Link href="/dashboard/settlements" className="w-full">
                         <Calculator className="mr-2 h-4 w-4" />
                         <span>정산 관리</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  
+                  {['branch_manager', 'company_admin', 'super_admin'].includes(profile?.role || '') && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard/settings/parser" className="w-full">
+                        <Code className="mr-2 h-4 w-4" />
+                        <span>파싱 설정</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
