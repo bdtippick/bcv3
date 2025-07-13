@@ -210,3 +210,37 @@ export async function getCompanyBranches() {
 
   return data || []
 }
+
+// 지점 관리자가 자신의 지점 라이더 조회
+export async function getBranchRiders() {
+  const profile = await getCurrentUserProfile()
+  if (!profile || !profile.company_id) return []
+
+  // branch_manager, company_admin, super_admin만 접근 가능
+  const allowedRoles = ['branch_manager', 'company_admin', 'super_admin']
+  if (!allowedRoles.includes(profile.role || '')) {
+    return []
+  }
+
+  const supabase = await createServerComponentClient()
+  
+  let query = supabase
+    .from('riders')
+    .select('*')
+    .eq('company_id', profile.company_id)
+    .order('created_at', { ascending: false })
+
+  // branch_manager는 자신의 지점만, company_admin과 super_admin은 모든 지점
+  if (profile.role === 'branch_manager' && profile.branch_id) {
+    query = query.eq('branch_id', profile.branch_id)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('Error getting branch riders:', error)
+    return []
+  }
+
+  return data || []
+}
