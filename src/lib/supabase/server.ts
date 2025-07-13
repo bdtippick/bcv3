@@ -185,3 +185,28 @@ export async function isBranchManager() {
          profile?.role === 'company_admin' || 
          profile?.role === 'super_admin'
 }
+
+// 회사 관리자가 소속 회사의 모든 지점 조회
+export async function getCompanyBranches() {
+  const profile = await getCurrentUserProfile()
+  if (!profile || !profile.company_id) return []
+
+  // company_admin만 접근 가능
+  if (profile.role !== 'company_admin' && profile.role !== 'super_admin') {
+    return []
+  }
+
+  const supabase = await createServerComponentClient()
+  const { data, error } = await supabase
+    .from('branches')
+    .select('*')
+    .eq('company_id', profile.company_id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error getting company branches:', error)
+    return []
+  }
+
+  return data || []
+}
