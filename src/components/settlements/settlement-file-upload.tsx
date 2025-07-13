@@ -46,8 +46,34 @@ export function SettlementFileUpload() {
   }
 
   const handleUpload = async () => {
-    if (!selectedFile || !profile?.branch_id) {
-      setErrorMessage('파일을 선택하거나 지점 정보를 확인해주세요.')
+    if (!selectedFile) {
+      setErrorMessage('파일을 선택해주세요.')
+      setUploadStatus('error')
+      return
+    }
+
+    // 지점 ID 확인 - company_admin의 경우 첫 번째 지점 사용, branch_manager는 자신의 지점 사용
+    let branchId = profile?.branch_id
+    
+    if (!branchId && (profile?.role === 'company_admin' || profile?.role === 'super_admin')) {
+      // company_admin이나 super_admin인 경우 회사의 첫 번째 지점 사용
+      try {
+        const { data: branches } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('company_id', profile.company_id)
+          .limit(1)
+        
+        if (branches && branches.length > 0) {
+          branchId = branches[0].id
+        }
+      } catch (error) {
+        console.error('Error fetching branch:', error)
+      }
+    }
+
+    if (!branchId) {
+      setErrorMessage('지점 정보를 찾을 수 없습니다. 관리자에게 문의하세요.')
       setUploadStatus('error')
       return
     }
@@ -62,7 +88,7 @@ export function SettlementFileUpload() {
       const fileName = `settlement_${timestamp}.${fileExtension}`
       
       // Supabase Storage 경로
-      const filePath = `settlements/${profile.branch_id}/${fileName}`
+      const filePath = `settlements/${branchId}/${fileName}`
 
       // 파일 업로드
       const { data, error } = await supabase.storage
@@ -216,7 +242,7 @@ export function SettlementFileUpload() {
 
       {/* 도움말 */}
       <div className="text-xs text-gray-500 space-y-1">
-        <p>• 업로드된 파일은 settlements/{profile?.branch_id}/ 경로에 저장됩니다</p>
+        <p>• 업로드된 파일은 settlements/ 경로에 지점별로 저장됩니다</p>
         <p>• 파일명에는 업로드 시간이 자동으로 포함됩니다</p>
         <p>• 업로드 후 자동으로 파일 데이터가 처리됩니다</p>
       </div>
